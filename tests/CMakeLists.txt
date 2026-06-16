@@ -2,13 +2,13 @@ function(da_add_test name)
   add_executable(${name} ${name}.cpp)
   target_link_libraries(${name} PRIVATE depthanything)
   target_include_directories(${name} PRIVATE
-      ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include
-      ${CMAKE_SOURCE_DIR}/tests ${CMAKE_SOURCE_DIR}/third_party)
+      ${DA_ROOT}/src ${DA_ROOT}/include
+      ${DA_ROOT}/tests ${DA_ROOT}/third_party)
   add_test(NAME ${name} COMMAND ${name})
   set_tests_properties(${name} PROPERTIES
       SKIP_RETURN_CODE 77
-      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-      ENVIRONMENT "DA_TEST_GGUF=${CMAKE_SOURCE_DIR}/models/depth-anything-base-f32.gguf;DA_TEST_BASELINE=${CMAKE_SOURCE_DIR}/dumps/reference.gguf;DA_TEST_BASELINE_MV=${CMAKE_SOURCE_DIR}/dumps/reference_mv.gguf;DA_TEST_BASELINE_MV4=${CMAKE_SOURCE_DIR}/dumps/reference_mv4.gguf;DA_TEST_GGUF_GIANT=${CMAKE_SOURCE_DIR}/models/depth-anything-giant-f32.gguf;DA_TEST_BASELINE_GIANT=${CMAKE_SOURCE_DIR}/dumps/reference_giant.gguf;DA_TEST_GGUF_METRIC=${CMAKE_SOURCE_DIR}/models/depth-anything-nested-metric.gguf;DA_TEST_GGUF_ANYVIEW=${CMAKE_SOURCE_DIR}/models/depth-anything-nested-anyview.gguf;DA_TEST_BASELINE_NESTED=${CMAKE_SOURCE_DIR}/dumps/reference_nested.gguf;DA_TEST_BASELINE_PREPROC=${CMAKE_SOURCE_DIR}/dumps/reference_preproc_real.gguf;DA_TEST_PREPROC_PNG=${CMAKE_SOURCE_DIR}/dumps/preproc_real_input.png;DA_TEST_BASELINE_NATIVE=${CMAKE_SOURCE_DIR}/dumps/reference_native.gguf;DA_TEST_NATIVE_PNG=${CMAKE_SOURCE_DIR}/dumps/native_input.png;DA_TEST_GGUF_MONO=${CMAKE_SOURCE_DIR}/models/depth-anything-mono-large-f32.gguf;DA_TEST_BASELINE_MONO=${CMAKE_SOURCE_DIR}/dumps/reference_mono.gguf;DA_TEST_MONO_PNG=${CMAKE_SOURCE_DIR}/dumps/mono_input.png;DA_TEST_GGUF_AUX=${CMAKE_SOURCE_DIR}/models/depth-anything-base-aux-f32.gguf;DA_TEST_BASELINE_RAYS=${CMAKE_SOURCE_DIR}/dumps/reference_rays.gguf;DA_TEST_BASELINE_RAY_POSE=${CMAKE_SOURCE_DIR}/dumps/reference_ray_pose.gguf")
+      WORKING_DIRECTORY ${DA_ROOT}
+      ENVIRONMENT "DA_TEST_GGUF=${DA_ROOT}/models/depth-anything-base-f32.gguf;DA_TEST_BASELINE=${DA_ROOT}/dumps/reference.gguf;DA_TEST_BASELINE_MV=${DA_ROOT}/dumps/reference_mv.gguf;DA_TEST_BASELINE_MV4=${DA_ROOT}/dumps/reference_mv4.gguf;DA_TEST_GGUF_GIANT=${DA_ROOT}/models/depth-anything-giant-f32.gguf;DA_TEST_BASELINE_GIANT=${DA_ROOT}/dumps/reference_giant.gguf;DA_TEST_GGUF_METRIC=${DA_ROOT}/models/depth-anything-nested-metric.gguf;DA_TEST_GGUF_ANYVIEW=${DA_ROOT}/models/depth-anything-nested-anyview.gguf;DA_TEST_BASELINE_NESTED=${DA_ROOT}/dumps/reference_nested.gguf;DA_TEST_BASELINE_PREPROC=${DA_ROOT}/dumps/reference_preproc_real.gguf;DA_TEST_PREPROC_PNG=${DA_ROOT}/dumps/preproc_real_input.png;DA_TEST_BASELINE_NATIVE=${DA_ROOT}/dumps/reference_native.gguf;DA_TEST_NATIVE_PNG=${DA_ROOT}/dumps/native_input.png;DA_TEST_GGUF_MONO=${DA_ROOT}/models/depth-anything-mono-large-f32.gguf;DA_TEST_BASELINE_MONO=${DA_ROOT}/dumps/reference_mono.gguf;DA_TEST_MONO_PNG=${DA_ROOT}/dumps/mono_input.png;DA_TEST_GGUF_AUX=${DA_ROOT}/models/depth-anything-base-aux-f32.gguf;DA_TEST_BASELINE_RAYS=${DA_ROOT}/dumps/reference_rays.gguf;DA_TEST_BASELINE_RAY_POSE=${DA_ROOT}/dumps/reference_ray_pose.gguf")
 endfunction()
 
 da_add_test(test_model_loader)
@@ -53,10 +53,10 @@ da_add_test(test_quantize_accuracy)
 add_executable(glb_parity_dump glb_parity_dump.cpp)
 target_link_libraries(glb_parity_dump PRIVATE depthanything)
 target_include_directories(glb_parity_dump PRIVATE
-    ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/third_party)
+    ${DA_ROOT}/src ${DA_ROOT}/include ${DA_ROOT}/third_party)
 
 # Standalone harness for scripts/parity_colmap.py (takes CLI args; not a ctest).
 add_executable(colmap_parity_dump colmap_parity_dump.cpp)
 target_link_libraries(colmap_parity_dump PRIVATE depthanything)
 target_include_directories(colmap_parity_dump PRIVATE
-    ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/third_party)
+    ${DA_ROOT}/src ${DA_ROOT}/include ${DA_ROOT}/third_party)

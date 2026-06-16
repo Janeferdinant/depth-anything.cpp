@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 project(depth_anything VERSION 0.0.1 LANGUAGES C CXX)
 
+# Absolute path to this project's own root. Use this (not CMAKE_SOURCE_DIR)
+# for every in-tree path so the build works both standalone AND when embedded
+# via add_subdirectory() (e.g. the LocalAI backend), where CMAKE_SOURCE_DIR
+# points at the parent project instead. CMake propagates this to subdirs.
+set(DA_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
@@ -71,8 +77,8 @@ else()
     add_library(depthanything STATIC ${DA_SOURCES})
 endif()
 target_include_directories(depthanything
-    PUBLIC  ${CMAKE_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/third_party ${CMAKE_SOURCE_DIR}/third_party/stb)
+    PUBLIC  ${DA_ROOT}/include
+    PRIVATE ${DA_ROOT}/src ${DA_ROOT}/third_party ${DA_ROOT}/third_party/stb)
 
 # Winograd's hot GEMV uses AVX-512 intrinsics. ggml gets these via GGML_NATIVE,
 # but our library target does not, so enable them for just winograd.cpp when the
@@ -85,10 +91,10 @@ if(DA_HAS_AVX512F)
 endif()
 target_link_libraries(depthanything PUBLIC ggml)
 
-if(DA_BUILD_CLI AND EXISTS ${CMAKE_SOURCE_DIR}/examples/cli/CMakeLists.txt)
+if(DA_BUILD_CLI AND EXISTS ${DA_ROOT}/examples/cli/CMakeLists.txt)
     add_subdirectory(examples/cli)
 endif()
-if(DA_BUILD_TESTS AND EXISTS ${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt)
+if(DA_BUILD_TESTS AND EXISTS ${DA_ROOT}/tests/CMakeLists.txt)
     enable_testing()
     add_subdirectory(tests)
 endif()

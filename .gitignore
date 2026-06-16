@@ -1,0 +1,14 @@
+/build/
+/build-*/
+/models/
+/dumps/
+*.safetensors
+__pycache__/
+*.pyc
+.venv/
+# Go build artifacts
+*.test
+*.out
+
+# recorder intermediate outputs
+/out/

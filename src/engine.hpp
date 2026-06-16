@@ -27,6 +27,9 @@ public:
     static std::unique_ptr<Engine> load_nested(const std::string& anyview_gguf,
                                                const std::string& metric_gguf, int n_threads);
     const Config& config() const { return ml_.config(); }
+    // True iff this engine was created via load_nested() (anyview + metric
+    // branches both loaded). depth_metric() is then the valid inference path.
+    bool is_nested() const { return metric_ml_ != nullptr; }
     // True iff this is a standalone monocular checkpoint: single-head DPT
     // (output_dim==1) with a parallel sky head. Routes the CLI depth command to
     // depth_mono (depth + sky) instead of the DualDPT depth_native (depth + conf).

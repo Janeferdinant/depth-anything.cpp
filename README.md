@@ -194,10 +194,11 @@ Gallery entries cover base (q4_k/q8_0/f16/f32), small, large, giant, and mono-la
 
 ## C API
 
-A flat C ABI (`include/da_capi.h`, `abi_version` 3) over `libdepthanything.so`:
+A flat C ABI (`include/da_capi.h`, `abi_version` 4) over `libdepthanything.so`:
 
 ```c
 da_ctx* ctx = da_capi_load("model.gguf", /*threads*/ 8);
+// nested metric model (two branches): da_capi_load_nested(anyview, metric, threads)
 int h, w, is_metric;
 float *depth, *conf, *sky, ext[12], intr[9];
 da_capi_depth_dense(ctx, "photo.jpg", &h, &w, &depth, &conf, &sky, ext, intr, &is_metric);

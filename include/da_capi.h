@@ -5,9 +5,16 @@
 extern "C" {
 #endif
 typedef struct da_ctx da_ctx;
-/* ABI version. 3: added da_capi_depth_dense, da_capi_points, da_capi_free_bytes. */
+/* ABI version. 3: added da_capi_depth_dense, da_capi_points, da_capi_free_bytes.
+   4: added da_capi_load_nested (two-branch metric model). */
 int         da_capi_abi_version(void);
 da_ctx*     da_capi_load(const char* gguf_path, int n_threads);  /* NULL on failure */
+/* Load a NESTED metric model from its two branches: the anyview (GIANT) GGUF and
+   the metric (ViT-L + DPT/sky) GGUF. The returned ctx runs the nested metric
+   alignment: da_capi_depth_dense / da_capi_depth_path / da_capi_pose_path all
+   produce the final metric-scale depth + scaled extrinsics (is_metric=1, conf/sky
+   = NULL). NULL on failure. */
+da_ctx*     da_capi_load_nested(const char* anyview_gguf, const char* metric_gguf, int n_threads);
 void        da_capi_free(da_ctx* ctx);                           /* safe on NULL */
 /* malloc'd JSON describing model config; free via da_capi_free_string. */
 char*       da_capi_info_json(da_ctx* ctx);
@@ -41,6 +48,8 @@ int da_capi_export_colmap(da_ctx* ctx, const char* image_path, const char* out_d
        *out_sky = NULL, out_ext[12] (3x4 row-major) + out_intr[9] (3x3) filled.
      - mono model (DA3MONO): *out_depth + *out_sky are filled, *out_conf = NULL,
        out_ext/out_intr zeroed (mono has no camera pose).
+     - nested model (da_capi_load_nested): *out_depth = final metric-scale depth,
+       *out_conf = *out_sky = NULL, out_ext/out_intr = scaled extrinsics/intrinsics.
    *out_is_metric = 1 for metric/nested/mono variants (best-effort from config),
    else 0. Any of out_h/out_w/out_depth/out_conf/out_sky/out_is_metric may be NULL;
    out_ext/out_intr must point to 12/9 floats respectively. */

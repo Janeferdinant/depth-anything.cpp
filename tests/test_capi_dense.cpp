@@ -60,11 +60,38 @@ static bool test_mono(const char* gguf, const char* png){
     return ok && okp;
 }
 
+// nested: two-branch metric model via da_capi_load_nested. depth present, conf
+// and sky NULL, is_metric==1, plausible pose.
+static bool test_nested(const char* anyview, const char* metric, const char* png){
+    da_ctx* c = da_capi_load_nested(anyview, metric, 1);
+    if (!c){ std::fprintf(stderr, "nested: load failed\n"); return false; }
+    int H=0, W=0, is_metric=-1; float *depth=nullptr, *conf=nullptr, *sky=nullptr;
+    float ext[12], intr[9];
+    int r = da_capi_depth_dense(c, png, &H, &W, &depth, &conf, &sky, ext, intr, &is_metric);
+    bool ok = (r == 0) && H>0 && W>0 && depth && !conf && !sky;
+    if (ok) ok = finite_all(depth, H*W);
+    if (ok) ok = (intr[0] > 0.f) && (intr[4] > 0.f) && finite_all(ext, 12) && finite_all(intr, 9);
+    if (ok) ok = (is_metric == 1);
+    std::fprintf(stderr, "nested dense: r=%d %dx%d depth=%p conf=%p sky=%p fx=%.3f is_metric=%d -> %s\n",
+                 r, W, H, (void*)depth, (void*)conf, (void*)sky, intr[0], is_metric, ok?"OK":"FAIL");
+    da_capi_free_floats(depth); da_capi_free_floats(conf); da_capi_free_floats(sky);
+    da_capi_free(c);
+    return ok;
+}
+
 int main(){
     const char* gguf = std::getenv("DA_TEST_GGUF");          // base f32 (DualDPT)
     const char* png  = std::getenv("DA_TEST_NATIVE_PNG");
     if (!gguf || !png) return 77;                            // skip if fixtures absent
     bool ok = test_dualdpt(gguf, png);
+
+    const char* nanyview = std::getenv("DA_TEST_GGUF_NESTED_ANYVIEW");
+    const char* nmetric  = std::getenv("DA_TEST_GGUF_NESTED_METRIC");
+    if (nanyview && nmetric){
+        ok = test_nested(nanyview, nmetric, png) && ok;
+    } else {
+        std::fprintf(stderr, "nested env not set, skipping nested checks\n");
+    }
 
     const char* mono = std::getenv("DA_TEST_GGUF_MONO");
     const char* mpng = std::getenv("DA_TEST_MONO_PNG");

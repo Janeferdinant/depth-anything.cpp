@@ -49,11 +49,33 @@ static bool capi_is_metric(const da::Config& cfg){
            n.find("mono")   != std::string::npos;
 }
 
+// Run the nested metric pipeline (anyview GIANT + metric ViT-L branches ->
+// alignment) for a single image. Fills depth + scaled ext/intr + processed dims.
+// Returns false with c->last_error set on failure.
+static bool capi_run_nested(da_ctx* c, const char* image_path,
+                            std::vector<float>& depth,
+                            std::array<float,12>& ext, std::array<float,9>& intr,
+                            int& H, int& W){
+    da::NestedOut out;
+    if (!c->engine->depth_metric_path(image_path, out, H, W)){
+        c->last_error = "nested: depth_metric failed"; return false; }
+    depth = std::move(out.depth);
+    ext = out.extrinsics;
+    intr = out.intrinsics;
+    return true;
+}
+
 extern "C" {
-int da_capi_abi_version(void){ return 3; }
+int da_capi_abi_version(void){ return 4; }
 da_ctx* da_capi_load(const char* path, int n_threads){
     if (!path) return nullptr;
     auto e = da::Engine::load(path, n_threads);
+    if (!e) return nullptr;
+    auto* c = new da_ctx(); c->engine = std::move(e); return c;
+}
+da_ctx* da_capi_load_nested(const char* anyview, const char* metric, int n_threads){
+    if (!anyview || !metric) return nullptr;
+    auto e = da::Engine::load_nested(anyview, metric, n_threads);
     if (!e) return nullptr;
     auto* c = new da_ctx(); c->engine = std::move(e); return c;
 }
@@ -71,7 +93,10 @@ const char* da_capi_last_error(da_ctx* c){ return c ? c->last_error.c_str() : ""
 float* da_capi_depth_path(da_ctx* c, const char* image_path, int* out_h, int* out_w){
     if (!c || !c->engine || !image_path){ if (c) c->last_error = "depth: bad args"; return nullptr; }
     std::vector<float> depth, conf; int H = 0, W = 0;
-    if (!c->engine->depth(image_path, depth, conf, H, W)){ c->last_error = "depth: failed"; return nullptr; }
+    if (c->engine->is_nested()){
+        std::array<float,12> ext; std::array<float,9> intr;
+        if (!capi_run_nested(c, image_path, depth, ext, intr, H, W)) return nullptr;
+    } else if (!c->engine->depth(image_path, depth, conf, H, W)){ c->last_error = "depth: failed"; return nullptr; }
     float* p = (float*)std::malloc(depth.size() * sizeof(float));
     if (!p){ c->last_error = "depth: oom"; return nullptr; }
     std::memcpy(p, depth.data(), depth.size() * sizeof(float));
@@ -83,7 +108,9 @@ void da_capi_free_floats(float* p){ std::free(p); }
 int da_capi_pose_path(da_ctx* c, const char* image_path, float out_ext[12], float out_intr[9]){
     if (!c || !c->engine || !image_path){ if (c) c->last_error = "pose: bad args"; return -1; }
     std::vector<float> depth, conf; std::array<float,12> ext; std::array<float,9> intr; int H = 0, W = 0;
-    if (!c->engine->depth_pose_path(image_path, depth, conf, ext, intr, H, W)){ c->last_error = "pose: failed"; return -1; }
+    if (c->engine->is_nested()){
+        if (!capi_run_nested(c, image_path, depth, ext, intr, H, W)) return -1;
+    } else if (!c->engine->depth_pose_path(image_path, depth, conf, ext, intr, H, W)){ c->last_error = "pose: failed"; return -1; }
     if (out_ext)  std::memcpy(out_ext,  ext.data(),  12 * sizeof(float));
     if (out_intr) std::memcpy(out_intr, intr.data(),  9 * sizeof(float));
     return 0;
@@ -170,9 +197,29 @@ int da_capi_depth_dense(da_ctx* c, const char* image_path, int* out_h, int* out_
     if (out_sky)   *out_sky   = nullptr;
     if (out_ext)  std::memset(out_ext,  0, 12 * sizeof(float));
     if (out_intr) std::memset(out_intr, 0,  9 * sizeof(float));
+    int H = 0, W = 0;
+    // Nested metric model: run both branches + alignment -> metric-scale depth +
+    // scaled pose. No conf/sky surface (sky is already folded into depth).
+    if (c->engine->is_nested()){
+        std::vector<float> ndepth; std::array<float,12> next; std::array<float,9> nintr;
+        if (!capi_run_nested(c, image_path, ndepth, next, nintr, H, W)) return -1;
+        const size_t hw = (size_t)H * W;
+        if (hw == 0 || ndepth.size() != hw){ c->last_error = "depth_dense: nested empty/size mismatch"; return -1; }
+        if (out_depth){
+            float* dptr = (float*)std::malloc(hw * sizeof(float));
+            if (!dptr){ c->last_error = "depth_dense: oom"; return -1; }
+            std::memcpy(dptr, ndepth.data(), hw * sizeof(float));
+            *out_depth = dptr;
+        }
+        if (out_ext)  std::memcpy(out_ext,  next.data(),  12 * sizeof(float));
+        if (out_intr) std::memcpy(out_intr, nintr.data(),  9 * sizeof(float));
+        if (out_h) *out_h = H;
+        if (out_w) *out_w = W;
+        if (out_is_metric) *out_is_metric = 1;
+        return 0;
+    }
     da::Image img;
     if (!da::load_image_rgb(image_path, img)){ c->last_error = "depth_dense: load image failed"; return -1; }
-    int H = 0, W = 0;
     const bool mono = c->engine->is_mono();
     std::vector<float> depth, second; // second = conf (DualDPT) or sky (mono)
     if (mono){

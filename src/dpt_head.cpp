@@ -366,6 +366,45 @@ bool DptHead::depth_sky(const std::vector<std::vector<float>>& feats, int H, int
     return run(feats, H, W, depth_out, conf_unused, nullptr, nullptr, &sky_out);
 }
 
+bool DptHead::depth_relative(const std::vector<std::vector<float>>& feats, int H, int W,
+                             float max_depth, std::vector<float>& depth_out) {
+    if (feats.size() != 4) return false;
+    const Config& cfg = ml_.config();
+    const int pw = W / (int)cfg.patch_size, ph = H / (int)cfg.patch_size;
+    const int N = ph * pw;
+    const int C = (cfg.cat_token ? 2 : 1) * (int)cfg.embed_dim;
+    for (const auto& f : feats) if ((int)f.size() != N * C) return false;
+
+    GraphInputPool pool;
+    std::vector<float> logits;
+    bool ok = be_.compute([&](ggml_context* ctx) -> ggml_tensor* {
+        ggml_tensor* feat[4];
+        for (int sidx = 0; sidx < 4; ++sidx) {
+            const int64_t fne[2] = { C, N };
+            feat[sidx] = be_.add_graph_input_nd(ctx, pool, feats[sidx].data(), fne, 2);
+        }
+        return build_depth_graph(ctx, feat, H, W, pool, nullptr, nullptr, nullptr);
+    }, logits);
+    if (!ok) return false;
+
+    const size_t HW = (size_t)H * W;
+    if (logits.size() != HW) return false;                 // output_dim == 1
+    // The build_depth_graph output stops at output_conv2's final conv (the trailing
+    // activation is not a tensor in our graph), so we apply it here. The two DA2 heads
+    // differ in that activation:
+    //   relative: output_conv2 ends ReLU->Identity, then outer F.relu  -> relu(logit)
+    //   metric:   output_conv2 ends Sigmoid, then depth * max_depth     -> sigmoid(logit)*max_depth
+    depth_out.resize(HW);
+    if (max_depth > 0.f) {                                  // metric
+        for (size_t i = 0; i < HW; ++i)
+            depth_out[i] = (1.0f / (1.0f + std::exp(-logits[i]))) * max_depth;
+    } else {                                                // relative
+        for (size_t i = 0; i < HW; ++i)
+            depth_out[i] = std::max(0.0f, logits[i]);
+    }
+    return true;
+}
+
 bool DptHead::depth_debug(const std::vector<std::vector<float>>& feats, int H, int W,
                           std::vector<float>& depth_out, std::vector<float>& conf_out,
                           std::vector<std::vector<float>>& stages, std::vector<float>& fused) {
